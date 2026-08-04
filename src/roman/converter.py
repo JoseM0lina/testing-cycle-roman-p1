@@ -81,6 +81,8 @@ def from_roman(s):
         i += 1
     if total < _MIN_VALUE or total > _MAX_VALUE:
         raise RomanError("value out of range 1..3999")
+    if not _is_canonical(text):
+        raise RomanError("not in canonical form: " + text)
     return total
 
 
@@ -110,3 +112,49 @@ def add_roman(a, b):
 
 def subtract_roman(a, b):
     return to_roman(from_roman(a) - from_roman(b))
+
+
+_SUBTRACTIVE_PAIR_VALUES = {
+    "IV": 4, "IX": 9, "XL": 40, "XC": 90, "CD": 400, "CM": 900,
+}
+
+
+def _is_canonical(text):
+    groups = []
+    i = 0
+    length = len(text)
+    while i < length:
+        pair = text[i:i + 2]
+        if pair in _SUBTRACTIVE_PAIR_VALUES:
+            groups.append((_SUBTRACTIVE_PAIR_VALUES[pair], pair))
+            i += 2
+        else:
+            groups.append((_SINGLE[text[i]], text[i]))
+            i += 1
+ 
+    for ch in ("V", "L", "D"):
+        if text.count(ch) > 1:
+            return False
+ 
+    run_char, run_len = "", 0
+    for ch in text:
+        run_len = run_len + 1 if ch == run_char else 1
+        run_char = ch
+        if ch in ("I", "X", "C", "M") and run_len > 3:
+            return False
+ 
+    pair_symbols = [symbols for _, symbols in groups if len(symbols) == 2]
+    if len(pair_symbols) != len(set(pair_symbols)):
+        return False
+ 
+    for (value, _), (next_value, _) in zip(groups, groups[1:]):
+        if next_value > value:
+            return False
+ 
+    for idx, (_, symbols) in enumerate(groups):
+        if len(symbols) == 2 and idx + 1 < len(groups):
+            minor_value = _SINGLE[symbols[0]]
+            if groups[idx + 1][0] >= minor_value:
+                return False
+ 
+    return True
