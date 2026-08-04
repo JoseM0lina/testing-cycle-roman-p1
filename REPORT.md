@@ -1,4 +1,4 @@
-# Testing Life Cycle Workshop — Report
+# Testing Life Cycle — Report
 
 ## Baseline
  
@@ -9,11 +9,23 @@ $ pytest
 15 passed
 ```
  
-Initial branch coverage of `src/roman/converter.py`:
+## Part 2: Audit the inherited suite
+
+Command used:
+
+```bash
+pytest --cov=roman.converter --cov-branch --cov-report=term-missing
+```
+
+**Initial branch coverage: 64%**
 
 ![](images/CapCov.png)
  
----
+
+## Part 3: Test at the unit level
+
+The tests in this part are structural: they are derived from the source code of `to_roman` (lines 40 to 53).
+
 
 ### 9. Control flow graph of `to_roman` (lines 40–53)
 
@@ -88,7 +100,7 @@ at node 10). `d` = definition, `c` = computational use, `p` = predicate use.
 ### 13. Unit tests and branch coverage
 
 Tests added to `tests/test_converter.py`, after the 15 inherited tests, targeting the branches
-`pytest --cov` reported as missing in section 0 (lines 42, 44, 46, 58, 61, 64, 72–74, 79, 83, 88,
+`pytest --cov` reported as missing in section 2 (lines 42, 44, 46, 58, 61, 64, 72–74, 79, 83, 88,
 92–96, 100–104, 108, 112)
 
 ![](images/CapCov2.png)
@@ -98,6 +110,15 @@ Tests added to `tests/test_converter.py`, after the 15 inherited tests, targetin
 add_roman and subtract_roman are built on from_roman and to_roman. Implemented in tests/test_integration.py:
 
 ![](images/CapCov3.png)
+
+**Defect.** `add_roman("II", "II")` computes `to_roman(from_roman("II") + from_roman("II"))` =
+`to_roman(4)`, which returned `"IIII"` instead of `"IV"`.
+
+**Why the unit tests of each function pass without detecting it.** The `to_roman` unit tests
+written in Part 3 deliberately avoid inputs whose units digit is 4, and the `from_roman` unit
+tests never exercise canonical-form checking. Each function's tests pass in isolation; the defect
+only surfaces once `add_roman` composes both functions with a value that lands on the untested
+case.
 
 ##  PART 5 - Acceptance criteria
 
@@ -109,10 +130,44 @@ Implemented in tests/test_acceptance.py:
 | 2 | Given `"  IV  "` (leading/trailing whitespace), when parsed with `from_roman`, then the ends are trimmed and `4` is returned | 3 |
 | 3 | Given the non-canonical string `"IIII"`, when checked with `is_valid_roman`, then the result is `False` | 4 |
 
+
 ![](images/CapCov4.png)
 
-## PART 6 - Fixing the defects
 
+All three criteria fail at 90% branch coverage (Part 2). **Why coverage cannot reveal defects
+of this kind:** branch coverage only records whether a line or branch executed, not whether the
+value it produced is correct. Every line involved in criteria 1–3 was already executed by the
+Part 3 unit tests — coverage does not distinguish `to_roman(4) == "IIII"` from
+`to_roman(4) == "IV"`, or a rejected space from a rejected letter, or a missing validation rule
+from one that was never written
+
+## PART 6 - Iteration
+
+### 20. Fixing the defects
+
+Three defects, three separate commits, the 15 inherited tests and all previously written tests
+left unmodified:
+
+```
+fix(integration): correct subtractive value for IV in _PAIRS per spec section 2
+fix(acceptance): trim leading/trailing whitespace in from_roman per spec section 3
+fix(acceptance): implement canonical form validation in from_roman per spec section 4
+```
+
+![](images/CapCov5.png)
+
+### Coverage, before and after
+
+| | Branch coverage | Result |
+|---|---|---|
+| Before (Part 0, inherited suite) | 64% | 15 passed |
+| After Part 3 (unit tests added) | 90% | 32 passed |
+| After Part 6 (defects fixed) | 87% | 36 passed, 0 failed |
+
+```
+$ pytest --cov=roman.converter --cov-branch --cov-report=term-missing
+36 passed
+```
 
 
 
